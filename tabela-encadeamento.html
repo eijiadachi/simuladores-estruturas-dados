@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulador Interativo — Tabela Hash (Encadeamento Externo)</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #fafafa;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1.5rem;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+    }
+
+    input, button {
+      font-size: 0.9rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      margin-top: 0.6rem;
+      display: block;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 0.4rem;
+      margin-top: 0.2rem;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      margin-top: 0.5rem;
+      margin-right: 0.4rem;
+      padding: 0.4rem 0.7rem;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      background: #f3f3f3;
+    }
+
+    button:hover {
+      background: #e8e8e8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 0.35rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    /* Bucket highlight */
+    .bucket-highlight {
+      animation: pulseBucket 0.45s ease-out;
+      outline: 2px solid #222;
+      background: #fff48f !important;
+    }
+
+    @keyframes pulseBucket {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+
+    /* Lista (bucket chain) */
+    .bucket-chain {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      min-height: 1.4rem;
+      flex-wrap: wrap;
+    }
+
+    .node-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.4rem;
+      border-radius: 999px;
+      background: #d8f5d4;
+      border: 1px solid #a5d9a0;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .node-chip .key {
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+
+    .node-chip .value {
+      opacity: 0.85;
+    }
+
+    .arrow {
+      font-size: 0.9rem;
+      opacity: 0.6;
+    }
+
+    .null-label {
+      font-size: 0.8rem;
+      font-family: "SF Mono", Menlo, Consolas;
+      opacity: 0.7;
+    }
+
+    /* Visita de nó */
+    .node-visit {
+      animation: pulseNode 0.45s ease-out;
+      box-shadow: 0 0 0 2px #222;
+      background: #ffe0b3 !important;
+    }
+
+    @keyframes pulseNode {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    /* Novo nó sendo criado */
+    .node-new {
+      background: #bde0ff !important;
+      border: 1px solid #6ca8d9 !important;
+      animation: born 0.6s ease-out;
+      font-size: 0.85rem;
+      border-radius: 999px;
+      padding: 0.2rem 0.5rem;
+      display: inline-flex;
+      gap: 0.25rem;
+      position: absolute;
+    }
+
+    @keyframes born {
+      0% { transform: scale(0.2); opacity: 0; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    .node-move {
+      transition: transform 0.6s ease-in-out;
+      z-index: 999;
+    }
+
+    .log {
+      width: 100%;
+      height: 200px;
+      margin-top: 0.5rem;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      padding: 0.5rem;
+      white-space: pre-wrap;
+      overflow-y: auto;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .status {
+      margin-top: 0.7rem;
+      font-size: 0.85rem;
+    }
+
+    .status span {
+      display: inline-block;
+      margin-right: 0.8rem;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Simulador Interativo — Tabela Hash (Encadeamento Externo)</h1>
+
+<div class="container">
+
+  <!-- Painel de Controle -->
+  <div class="panel">
+    <h2>Operações</h2>
+
+    <label>Capacidade
+      <input id="cap-input" type="number" min="3" max="401" step="2" value="17">
+    </label>
+    <button id="btn-recriar">Recriar tabela</button>
+
+    <hr>
+
+    <label>Chave
+      <input id="chave-input" type="text">
+    </label>
+
+    <label>Valor (inserção)
+      <input id="valor-input" type="text">
+    </label>
+
+    <button id="btn-inserir">Inserir / Atualizar</button>
+    <button id="btn-buscar">Buscar</button>
+    <button id="btn-remover">Remover</button>
+    <button id="btn-limpar-log">Limpar Log</button>
+
+    <div class="status">
+      <span><strong>Quantidade:</strong> <span id="qtd">0</span></span>
+      <span><strong>Capacidade:</strong> <span id="cap">17</span></span>
+      <span><strong>Fator de carga:</strong> <span id="carga">0</span></span>
+    </div>
+
+    <textarea id="log" class="log" readonly></textarea>
+  </div>
+
+  <!-- Tabela visual -->
+  <div class="panel">
+    <h2>Estrutura da Tabela (listas encadeadas)</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Índice</th>
+          <th>Lista (encadeamento)</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+  </div>
+
+</div>
+
+<script>
+/* ------------------------------
+    Modelo de Encadeamento Externo
+------------------------------ */
+
+let buckets = [];
+let capacidade = 17;
+let quantidade = 0;
+
+function valorHash(chave) {
+  let s = 0;
+  for (let c of chave) s += c.charCodeAt(0);
+  return s;
+}
+
+function hash(chave) {
+  return valorHash(chave) % capacidade;
+}
+
+/* ------------------------------
+    Animações
+------------------------------ */
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function limparHighlights() {
+  document.querySelectorAll(".bucket-highlight").forEach(el => el.classList.remove("bucket-highlight"));
+  document.querySelectorAll(".node-visit").forEach(el => el.classList.remove("node-visit"));
+}
+
+async function animarBucket(index) {
+  limparHighlights();
+  const row = document.querySelector(`tr[data-idx="${index}"]`);
+  row.classList.add("bucket-highlight");
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  await sleep(450);
+  row.classList.remove("bucket-highlight");
+}
+
+async function animarVisitaNo(bucketIndex, pos) {
+  const row = document.querySelector(`tr[data-idx="${bucketIndex}"]`);
+  const chip = row.querySelector(`.node-chip[data-node-index="${pos}"]`);
+  chip.classList.add("node-visit");
+  chip.scrollIntoView({ behavior: "smooth", block: "center" });
+  await sleep(450);
+  chip.classList.remove("node-visit");
+}
+
+async function animarCriacaoNovoNo(chave, valor, bucketIndex) {
+  const chip = document.createElement("div");
+  chip.className = "node-new";
+  chip.innerHTML = `<span class="key">${chave}</span><span class="value">(${valor})</span>`;
+
+  const row = document.querySelector(`tr[data-idx="${bucketIndex}"]`);
+  const rect = row.getBoundingClientRect();
+
+  chip.style.top = `${rect.top}px`;
+  chip.style.left = `${rect.left - 50}px`;
+  document.body.appendChild(chip);
+
+  await sleep(900);
+
+  chip.classList.add("node-move");
+  chip.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+
+  await sleep(900);
+
+  chip.remove();
+}
+
+/* ------------------------------
+    LOG
+------------------------------ */
+
+function log(msg) {
+  const box = document.getElementById("log");
+  box.value += msg + "\n";
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ------------------------------
+    UI
+------------------------------ */
+
+function atualizarUI() {
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  for (let i = 0; i < capacidade; i++) {
+    const tr = document.createElement("tr");
+    tr.dataset.idx = i;
+
+    const tdIdx = document.createElement("td");
+    tdIdx.textContent = i;
+
+    const tdLista = document.createElement("td");
+    const container = document.createElement("div");
+    container.className = "bucket-chain";
+
+    const lista = buckets[i];
+
+    if (!lista || lista.length === 0) {
+      const nullSpan = document.createElement("span");
+      nullSpan.className = "null-label";
+      nullSpan.textContent = "null";
+      container.appendChild(nullSpan);
+    } else {
+      lista.forEach((no, pos) => {
+        const chip = document.createElement("span");
+        chip.className = "node-chip";
+        chip.dataset.nodeIndex = pos;
+
+        chip.innerHTML = `<span class="key">${no.chave}</span><span class="value">(${no.valor})</span>`;
+        container.appendChild(chip);
+
+        const arrow = document.createElement("span");
+        arrow.className = "arrow";
+        arrow.textContent = "→";
+        container.appendChild(arrow);
+      });
+
+      const nullSpan = document.createElement("span");
+      nullSpan.className = "null-label";
+      nullSpan.textContent = "null";
+      container.appendChild(nullSpan);
+    }
+
+    tdLista.appendChild(container);
+    tr.appendChild(tdIdx);
+    tr.appendChild(tdLista);
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("qtd").textContent = quantidade;
+  document.getElementById("cap").textContent = capacidade;
+  document.getElementById("carga").textContent = (quantidade / capacidade).toFixed(3);
+}
+
+function recriarTabela(novaCap) {
+  capacidade = novaCap;
+  buckets = [];
+  for (let i = 0; i < capacidade; i++) buckets.push([]);
+  quantidade = 0;
+  document.getElementById("log").value = "";
+  log(`Tabela recriada com capacidade ${capacidade}`);
+  atualizarUI();
+}
+
+/* ------------------------------
+    OPERAÇÕES
+------------------------------ */
+
+async function inserir(chave, valor) {
+  if (!chave) {
+    alert("Digite uma chave.");
+    return;
+  }
+
+  const idx = hash(chave);
+  log(`Inserir("${chave}","${valor}") → índice = ${idx}`);
+
+  const lista = buckets[idx];
+
+  await animarBucket(idx);
+
+  for (let i = 0; i < lista.length; i++) {
+    await animarVisitaNo(idx, i);
+    log(` visitando nó ${i}: chave="${lista[i].chave}"`);
+
+    if (lista[i].chave === chave) {
+      log("   chave existe → atualizando valor");
+      lista[i].valor = valor;
+      atualizarUI();
+      return;
+    }
+  }
+
+  log("  chave não encontrada → criando novo nó (animação)");
+
+  await animarCriacaoNovoNo(chave, valor, idx);
+
+  lista.unshift({ chave, valor });
+  quantidade++;
+  atualizarUI();
+}
+
+async function buscar(chave) {
+  if (!chave) {
+    alert("Digite uma chave.");
+    return;
+  }
+
+  const idx = hash(chave);
+  log(`Buscar("${chave}") → índice = ${idx}`);
+
+  const lista = buckets[idx];
+
+  await animarBucket(idx);
+
+  for (let i = 0; i < lista.length; i++) {
+    await animarVisitaNo(idx, i);
+    log(` visitando nó ${i}: chave="${lista[i].chave}"`);
+
+    if (lista[i].chave === chave) {
+      log(`   chave encontrada → valor="${lista[i].valor}"`);
+      alert(`Encontrado: ${lista[i].valor}`);
+      return lista[i].valor;
+    }
+  }
+
+  log("  fim da lista → chave não encontrada");
+  alert("Não encontrada.");
+  return null;
+}
+
+async function remover(chave) {
+  if (!chave) {
+    alert("Digite uma chave.");
+    return;
+  }
+
+  const idx = hash(chave);
+  log(`Remover("${chave}") → índice = ${idx}`);
+
+  const lista = buckets[idx];
+
+  await animarBucket(idx);
+
+  for (let i = 0; i < lista.length; i++) {
+    await animarVisitaNo(idx, i);
+    log(` visitando nó ${i}: chave="${lista[i].chave}"`);
+
+    if (lista[i].chave === chave) {
+      log(`   chave encontrada → removendo nó`);
+      lista.splice(i, 1);
+      quantidade--;
+      atualizarUI();
+      alert("Removido com sucesso.");
+      return true;
+    }
+  }
+
+  log(" fim da lista → chave não encontrada");
+  alert("Não encontrada.");
+  return false;
+}
+
+/* ------------------------------
+    EVENTOS
+------------------------------ */
+
+document.getElementById("btn-recriar").onclick = () => {
+  let n = parseInt(document.getElementById("cap-input").value);
+  if (isNaN(n) || n < 3) n = 3;
+  if (n % 2 === 0) n++;
+  document.getElementById("cap-input").value = n;
+  recriarTabela(n);
+};
+
+document.getElementById("btn-inserir").onclick = async () => {
+  limparHighlights();
+  const chave = document.getElementById("chave-input").value.trim();
+  const valor = document.getElementById("valor-input").value.trim();
+  await inserir(chave, valor);
+};
+
+document.getElementById("btn-buscar").onclick = async () => {
+  limparHighlights();
+  const chave = document.getElementById("chave-input").value.trim();
+  await buscar(chave);
+};
+
+document.getElementById("btn-remover").onclick = async () => {
+  limparHighlights();
+  const chave = document.getElementById("chave-input").value.trim();
+  await remover(chave);
+};
+
+document.getElementById("btn-limpar-log").onclick = () => {
+  document.getElementById("log").value = "";
+};
+
+/* Inicialização */
+recriarTabela(17);
+</script>
+
+</body>
+</html>
